@@ -95,7 +95,7 @@ export function createGlobalEnv() {
             }))
 
             .set("error",make_native_func((args) => {
-                console.error(args);
+                console.error(...args);
                 throw args;
             }))
 
