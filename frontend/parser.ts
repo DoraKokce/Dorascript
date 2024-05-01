@@ -1,4 +1,4 @@
-import { Stmt, Program, Expr, BinaryExpr, NumericLiteral, Identifier, VarDeclaration, AssignmentExpr, Property, ObjectLiteral, CallExpr, MemberExpr,FunctionDeclaration } from "./ast.ts";
+import { Stmt, Program, Expr, BinaryExpr, NumericLiteral, Identifier, VarDeclaration, AssignmentExpr, Property, ObjectLiteral, CallExpr, MemberExpr,FunctionDeclaration, StringLiteral } from "./ast.ts";
 import { tokenize, Token, TokenType } from "./lexer.ts";
 
 export default class Parser {
@@ -110,6 +110,7 @@ export default class Parser {
         if (this.at().type == TokenType.Equals) {
             this.eat();
             const value = this.parse_assignment_expr();
+            this.expect(TokenType.Semicolon,"Variable assignment statment must end with semicolon.")
             return { value,assigne:left,kind:"AssignmentExpr" } as AssignmentExpr;
         }
 
@@ -276,7 +277,11 @@ export default class Parser {
                     "Unexpected token found inside parenthesised expression. Expected closing parenthesis.",
                 );
                 return value;
-
+            case TokenType.String:
+                return {
+                    kind: "StringLiteral",
+                    value: this.eat().value,
+                } as StringLiteral;
             default:
                 console.error("Unexpected token found during parsing!",this.at());
                 Deno.exit(1);

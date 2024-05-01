@@ -7,7 +7,8 @@ export type ValueType =
     | "boolean"
     | "object"
     | "native-fn"
-    | "function";
+    | "function"
+    | "string";
 
 export interface RuntimeVal {
     type: ValueType;
@@ -16,6 +17,11 @@ export interface RuntimeVal {
 export interface NullVal extends RuntimeVal {
     type: "null";
     value: null;
+}
+
+export interface StringVal extends RuntimeVal {
+    type: "string";
+    value: string;
 }
 
 export interface NumberVal extends RuntimeVal {

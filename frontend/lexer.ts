@@ -1,16 +1,21 @@
 export enum TokenType {
     Number,
+    String,
     Identifier,
+
     Equals,
     Semicolon,
     OpenParen,CloseParen,//()
     OpenBrace,CloseBrace,//{}
     OpenBracket,CloseBracket,//[]
+
     BinaryOperator,
     Comma,Colon,Dot,
+
     Const,
     Let,
     Function,
+
     EOF,
 }
 
@@ -20,15 +25,23 @@ const KEYWORDS: Record<string, TokenType> = {
     function:TokenType.Function
 }
 
+const ESCAPED: Record<string, string> = {
+    n: "\n",
+    t: "\t",
+    r: "\r",
+};
+
 export interface Token {
     value: string,
     type: TokenType,
+    raw?: string;
 }
 
-function token(value = "", type:TokenType): Token {
+function token(value = "", type:TokenType,raw:string = value): Token {
     return {
         value,
         type,
+        raw,
     };
 }
 
@@ -97,6 +110,36 @@ export function tokenize(sourceCode:string): Token[] {
                 }
             } else if (isskippable(src[0])) {
                 src.shift();
+            } else if (src[0] == '"') {
+                let str = "";
+                let raw = "";
+                src.shift();
+
+                let escaped = false;
+                while (src.length > 0) {
+                    const key = src.shift();
+                    raw += key;
+                    if(key == "\\") {
+                        escaped = !escaped;
+                        if(escaped)continue;
+                    } else if (key == '"') {
+                        if(!escaped) {
+                            break;
+                        }
+                        escaped = false;
+                    } else if (escaped) {
+                        escaped = false;
+                        if(ESCAPED[key]) {
+                            str += ESCAPED[key];
+                            continue;
+                        } else {
+                            str += `\\`;
+                        }
+                    }
+                    str += key;  
+                }
+                
+                tokens.push(token(str, TokenType.String, raw.substring(0, raw.length - 1)));
             } else {
                 console.log("Invalid character found in source:",src[0])
                 Deno.exit(1);
