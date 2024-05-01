@@ -1,4 +1,6 @@
-import { RuntimeVal,make_bool,make_native_func,make_null, make_number } from "./values.ts";
+import { Identifier, MemberExpr } from "../frontend/ast.ts";
+import { evaluate } from "./interpreter.ts";
+import { NumberVal, ObjectVal, RuntimeVal,make_bool,make_native_func,make_null, make_number } from "./values.ts";
 
 export default class Environment {
     private parent?: Environment;
@@ -49,6 +51,33 @@ export default class Environment {
         }
 
         return this.parent.resolve(varname);
+    }
+
+    public lookupOrMutObject(expr: MemberExpr, value?: RuntimeVal, property?: Identifier): RuntimeVal {
+        let pastVal;
+        if (expr.object.kind === 'MemberExpr') {
+            pastVal = this.lookupOrMutObject(expr.object as MemberExpr, null, (expr.object as MemberExpr).property as Identifier);
+        } else {
+            const varname = (expr.object as Identifier).symbol;
+            const env = this.resolve(varname);
+
+            pastVal = env.variables.get(varname);
+        }
+
+        switch(pastVal.type) {
+            case "object": {
+                const currentProp = (expr.property as Identifier).symbol;
+                const prop = property ? property.symbol : currentProp;
+
+                if (value) (pastVal as ObjectVal).properties.set(prop, value);
+
+                if (currentProp) pastVal = ((pastVal as ObjectVal).properties.get(currentProp) as ObjectVal);
+
+                return pastVal;
+            }
+            default:
+                throw "Cannot lookup or mutate type: " + pastVal.type;
+        }
     }
 }
 

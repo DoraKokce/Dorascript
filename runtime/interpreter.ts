@@ -1,7 +1,7 @@
 import { RuntimeVal, NumberVal, make_null } from "./values.ts"
-import { AssignmentExpr, BinaryExpr, CallExpr, FunctionDeclaration, Identifier, NumericLiteral, ObjectLiteral, Program, Stmt, VarDeclaration } from "../frontend/ast.ts"
+import { AssignmentExpr, BinaryExpr, CallExpr, FunctionDeclaration, Identifier, MemberExpr, NumericLiteral, ObjectLiteral, Program, Stmt, VarDeclaration } from "../frontend/ast.ts"
 import Environment from "./environment.ts";
-import { evaluate_assignment, evaluate_call_expr, evaluate_identifier, evaluate_object_expr, evauluate_bin_expr } from "./eval/expression.ts";
+import { evaluate_assignment, evaluate_call_expr, evaluate_identifier, evaluate_member_expr, evaluate_object_expr, evauluate_bin_expr } from "./eval/expression.ts";
 import { evaulate_program, evaluate_var_declaration, evaluate_function_declaration } from "./eval/statement.ts";
 
 export function evaluate(astNode: Stmt,env:Environment): RuntimeVal {
@@ -24,6 +24,8 @@ export function evaluate(astNode: Stmt,env:Environment): RuntimeVal {
             return evaluate_var_declaration(astNode as VarDeclaration,env);
         case "FunctionDeclaration":
             return evaluate_function_declaration(astNode as FunctionDeclaration,env);
+        case "MemberExpr":
+            return evaluate_member_expr(env,undefined,astNode as MemberExpr);
         default:
             console.error("This AST Node has not yet been setup for interpretation.",astNode);
             Deno.exit(1);       

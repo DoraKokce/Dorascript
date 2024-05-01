@@ -1,4 +1,4 @@
-import { AssignmentExpr, BinaryExpr, CallExpr, Identifier, ObjectLiteral } from "../../frontend/ast.ts";
+import { AssignmentExpr, BinaryExpr, CallExpr, Identifier, MemberExpr, ObjectLiteral } from "../../frontend/ast.ts";
 import Environment from "../environment.ts";
 import { evaluate } from "../interpreter.ts";
 import { FunctionValue, NativeFnValue, NumberVal, ObjectVal, RuntimeVal, make_null } from "../values.ts";
@@ -40,14 +40,14 @@ export function evaluate_identifier(ident:Identifier,env:Environment): RuntimeVa
     return val
 }
 
-export function evaluate_assignment(node: AssignmentExpr,env:Environment):RuntimeVal {
-    if (node.assigne.kind !== "Identifier") {
-        throw `Invalid LHS inaide assignment expr ${JSON.stringify(node.assigne)}`;
-    }
-    const varname = (node.assigne as Identifier).symbol;
-    return env.assignVar(varname,evaluate(node.value,env));
-}
+export function evaluate_assignment(node: AssignmentExpr, env: Environment): RuntimeVal {
+    if (node.assigne.kind === "MemberExpr") return evaluate_member_expr(env, node);
+    if (node.assigne.kind !== "Identifier") throw `Invalid left-hand-side expression: ${JSON.stringify(node.assigne)}.`;
 
+    const varname = (node.assigne as Identifier).symbol;
+
+    return env.assignVar(varname, evaluate(node.value, env));
+}
 export function evaluate_object_expr(obj:ObjectLiteral,env:Environment):RuntimeVal {
     const object = { type: "object",properties: new Map()} as ObjectVal;
     for (const { key,value } of obj.properties) {
@@ -86,4 +86,11 @@ export function evaluate_call_expr(expr:CallExpr,env:Environment):RuntimeVal {
     }   
     
     throw "Can't call value that is not a function: " + JSON.stringify(fn);
+}
+
+export function evaluate_member_expr(env: Environment, node?: AssignmentExpr, expr?: MemberExpr): RuntimeVal {
+    if (expr) return env.lookupOrMutObject(expr);
+    if (node) return env.lookupOrMutObject(node.assigne as MemberExpr, evaluate(node.value, env));
+    
+    throw `Evaluating a member expression is not possible without a member or assignment expression.`
 }
