@@ -95,7 +95,7 @@ export function createGlobalEnv() {
             }))
 
             .set("error",make_native_func((args) => {
-                Deno.exit(1);
+                console.error(args);
                 throw args;
             }))
 
