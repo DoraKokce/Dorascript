@@ -1,6 +1,6 @@
 import { Identifier, MemberExpr } from "../frontend/ast.ts";
 import { evaluate } from "./interpreter.ts";
-import { NumberVal, ObjectVal, RuntimeVal,make_bool,make_native_func,make_null, make_number } from "./values.ts";
+import { ObjectVal, RuntimeVal,make_bool,make_native_func,make_null, make_number, make_obj } from "./values.ts";
 
 export default class Environment {
     private parent?: Environment;
@@ -56,7 +56,7 @@ export default class Environment {
     public lookupOrMutObject(expr: MemberExpr, value?: RuntimeVal, property?: Identifier): RuntimeVal {
         let pastVal;
         if (expr.object.kind === 'MemberExpr') {
-            pastVal = this.lookupOrMutObject(expr.object as MemberExpr, null, (expr.object as MemberExpr).property as Identifier);
+            pastVal = this.lookupOrMutObject(expr.object as MemberExpr, undefined, (expr.object as MemberExpr).property as Identifier);
         } else {
             const varname = (expr.object as Identifier).symbol;
             const env = this.resolve(varname);
@@ -87,15 +87,29 @@ export function createGlobalEnv() {
     env.declareVar("false",make_bool(false),true);
     env.declareVar("null",make_null(),true);
 
-    env.declareVar("print", make_native_func((args,scope) => {
-        console.log(...args);
-        return make_null();
-    }), true)
+    env.declareVar("console",make_obj(
+        new Map()
+            .set("log",make_native_func((args) => {
+                console.log(...args);
+                return make_null();
+            }))
 
-    function timeFunction(args:RuntimeVal[],env:Environment) {
-        return make_number(Date.now());
-    }
-    env.declareVar("time", make_native_func(timeFunction),true)
+            .set("error",make_native_func((args) => {
+                console.error(...args);
+                return make_null();
+            }))
 
+            .set("clear",make_native_func(() => {
+                console.clear();
+                return make_null();
+            }))
+    ),true)
+
+    env.declareVar("Date",make_obj(
+        new Map()
+           .set("now",make_native_func(() => {
+                return make_number(Date.now());
+            }))
+    ),true);
     return env
 }

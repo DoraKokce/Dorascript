@@ -81,3 +81,7 @@ export function make_number(value = 0) {
         value: value,
     } as NumberVal;
 }
+
+export function make_obj(obj: Map<string, RuntimeVal>): ObjectVal {
+    return { type: "object", properties: obj } as ObjectVal;
+}

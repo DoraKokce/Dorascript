@@ -270,12 +270,9 @@ export default class Parser {
             case TokenType.Number:
                 return { kind:"NumericLiteral",value: parseFloat(this.eat().value)} as NumericLiteral;
             case TokenType.OpenParen:
-                this.eat();
+                this.eat()
                 const value = this.parse_expr();
-                this.expect(
-                    TokenType.CloseParen,
-                    "Unexpected token found inside parenthesised expression. Expected closing parenthesis.",
-                );
+                this.expect(TokenType.CloseParen,"Unexpected token found inside parenthesised expression. Expected closing parenthesis.",);
                 return value;
             case TokenType.String:
                 return {
