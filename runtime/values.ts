@@ -6,6 +6,7 @@ export type ValueType =
     | "number"
     | "boolean"
     | "object"
+    | "array"
     | "native-fn"
     | "function"
     | "string";
@@ -37,6 +38,11 @@ export interface BooleanVal extends RuntimeVal {
 export interface ObjectVal extends RuntimeVal{
     type: "object";
     properties: Map<string,RuntimeVal>;
+}
+
+export interface ArrayVal extends RuntimeVal {
+    type: "array";
+    values: RuntimeVal[];
 }
 
 export type FunctionCall = (args: RuntimeVal[], env: Environment) => RuntimeVal;

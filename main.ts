@@ -11,7 +11,7 @@ async function repl() {
     while (true) {
         const input = prompt("> ");
 
-        if (!input || input.includes("exit")) {
+        if (!input) {
             Deno.exit(0);
         }
         const program = parser.produceAST(input);

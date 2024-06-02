@@ -1,7 +1,7 @@
-import { AssignmentExpr, BinaryExpr, CallExpr, Identifier, MemberExpr, ObjectLiteral } from "../../frontend/ast.ts";
+import { ArrayLiteral, AssignmentExpr, BinaryExpr, CallExpr, Identifier, MemberExpr, ObjectLiteral } from "../../frontend/ast.ts";
 import Environment from "../environment.ts";
 import { evaluate } from "../interpreter.ts";
-import { FunctionValue, NativeFnValue, NumberVal, ObjectVal, RuntimeVal, make_null } from "../values.ts";
+import { ArrayVal, FunctionValue, NativeFnValue, NumberVal, ObjectVal, RuntimeVal, make_null } from "../values.ts";
 
 function evaluate_numeric_binary_expr(lhs:NumberVal,rhs:NumberVal,op:string): NumberVal {
     let res:number;
@@ -57,6 +57,18 @@ export function evaluate_object_expr(obj:ObjectLiteral,env:Environment):RuntimeV
     }
 
     return object
+}
+
+export function evaluate_array_expr(obj: ArrayLiteral, env: Environment): RuntimeVal {
+    const array = { type: "array", values: [] } as ArrayVal;
+
+    for(const value of obj.values) {
+        const runtimeVal = evaluate(value, env);
+
+        array.values.push(runtimeVal);
+    }
+
+    return array;
 }
 
 export function evaluate_call_expr(expr:CallExpr,env:Environment):RuntimeVal {

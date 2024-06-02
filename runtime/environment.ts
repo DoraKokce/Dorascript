@@ -1,6 +1,6 @@
 import { Identifier, MemberExpr } from "../frontend/ast.ts";
 import { evaluate } from "./interpreter.ts";
-import { ObjectVal, RuntimeVal,make_bool,make_native_func,make_null, make_number, make_obj } from "./values.ts";
+import { ObjectVal, ArrayVal, RuntimeVal,make_bool,make_native_func,make_null, make_number, make_obj, NumberVal } from "./values.ts";
 
 export default class Environment {
     private parent?: Environment;
@@ -74,6 +74,19 @@ export default class Environment {
                 if (currentProp) pastVal = ((pastVal as ObjectVal).properties.get(currentProp) as ObjectVal);
 
                 return pastVal;
+            }
+            case "array": {
+
+                // Will evaluate the expression. Numbers will stay, but a variable will work. This allows for array[0] and array[ident].
+                const numRT: RuntimeVal = evaluate(expr.property, this);
+
+                if(numRT.type != "number") throw "Arrays do not have keys: " + expr.property;
+
+                const num = (numRT as NumberVal).value;
+
+                if(value) (pastVal as ArrayVal).values[num] = value;
+
+                return (pastVal as ArrayVal).values[num];
             }
             default:
                 throw "Cannot lookup or mutate type: " + pastVal.type;

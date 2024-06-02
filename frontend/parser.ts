@@ -1,4 +1,4 @@
-import { Stmt, Program, Expr, BinaryExpr, NumericLiteral, Identifier, VarDeclaration, AssignmentExpr, Property, ObjectLiteral, CallExpr, MemberExpr,FunctionDeclaration, StringLiteral } from "./ast.ts";
+import { Stmt, Program, Expr, BinaryExpr, NumericLiteral, Identifier, VarDeclaration, AssignmentExpr, Property, ObjectLiteral, CallExpr, MemberExpr,FunctionDeclaration, StringLiteral, ArrayLiteral } from "./ast.ts";
 import { tokenize, Token, TokenType } from "./lexer.ts";
 
 export default class Parser {
@@ -119,7 +119,7 @@ export default class Parser {
 
     private parse_object_expr():Expr {
         if (this.at().type !== TokenType.OpenBrace) {
-            return this.parse_additive_expr();
+            return this.parse_array_expr();
         }
 
         this.eat();
@@ -148,6 +148,25 @@ export default class Parser {
 
         this.expect(TokenType.CloseBrace,"Object literal missing closing brace.");
         return { kind:"ObjectLiteral",properties } as ObjectLiteral;
+    }
+
+    private parse_array_expr(): Expr {
+        if (this.at().type !== TokenType.OpenBracket) {
+            return this.parse_additive_expr()
+        }
+        this.eat();
+        const values = new Array<Expr>();
+
+        while (this.not_eof() && this.at().type != TokenType.CloseBracket) {
+            values.push(this.parse_expr());
+
+            if (this.at().type != TokenType.CloseBracket) {
+                this.expect(TokenType.Comma, "Comma or closing bracket expected after \"value\" in array.");
+            }
+        }
+        
+        this.expect(TokenType.CloseBracket,"Closing Bracket expected at the end of \"Array\" expression.")
+        return { kind:"ArrayLiteral", values } as ArrayLiteral;
     }
 
     private parse_expr(): Expr {

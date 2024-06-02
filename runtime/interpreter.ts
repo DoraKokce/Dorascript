@@ -1,7 +1,7 @@
 import { RuntimeVal, NumberVal, make_null, StringVal } from "./values.ts"
-import { AssignmentExpr, BinaryExpr, CallExpr, FunctionDeclaration, Identifier, MemberExpr, NumericLiteral, ObjectLiteral, Program, Stmt, StringLiteral, VarDeclaration } from "../frontend/ast.ts"
+import { ArrayLiteral, AssignmentExpr, BinaryExpr, CallExpr, FunctionDeclaration, Identifier, MemberExpr, NumericLiteral, ObjectLiteral, Program, Stmt, StringLiteral, VarDeclaration } from "../frontend/ast.ts"
 import Environment from "./environment.ts";
-import { evaluate_assignment, evaluate_call_expr, evaluate_identifier, evaluate_member_expr, evaluate_object_expr, evauluate_bin_expr } from "./eval/expression.ts";
+import { evaluate_array_expr, evaluate_assignment, evaluate_call_expr, evaluate_identifier, evaluate_member_expr, evaluate_object_expr, evauluate_bin_expr } from "./eval/expression.ts";
 import { evaulate_program, evaluate_var_declaration, evaluate_function_declaration } from "./eval/statement.ts";
 
 export function evaluate(astNode: Stmt,env:Environment): RuntimeVal {
@@ -13,7 +13,9 @@ export function evaluate(astNode: Stmt,env:Environment): RuntimeVal {
         case "Identifier":
             return evaluate_identifier(astNode as Identifier,env);
         case "ObjectLiteral":
-            return evaluate_object_expr(astNode as ObjectLiteral,env);
+            return evaluate_object_expr(astNode as ObjectLiteral,env);        
+        case "ArrayLiteral":
+            return evaluate_array_expr(astNode as ArrayLiteral, env);
         case "CallExpr":
             return evaluate_call_expr(astNode as CallExpr,env);
         case "AssignmentExpr":
