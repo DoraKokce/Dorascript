@@ -10,6 +10,7 @@
 
 ###
 
-<h4 align="left">To run to programing language you must have Deno installed.<br><br>You need to change the location of the terminal to where Dorascript is installed and type "deno run --allow-read -A main.ts test.ds" into the terminal.</h4>
+<h4 align="left">To run to programing language you must have Deno installed.<br><br>You need to change the location of the terminal to where Dorascript is installed and type "deno run --allow-read -A main.ts" into the terminal.
+To run it with files, put the file name at the end of the command.</h4>
 
 ###
