@@ -76,8 +76,19 @@ export function tokenize(sourceCode:string): Token[] {
             tokens.push(token(src.shift(),TokenType.OpenBracket));
         } else if (src[0] == ']') {
             tokens.push(token(src.shift(),TokenType.CloseBracket));
-        } else if (src[0] == '+' || src[0] == '-' || src[0] == '*' || src[0] == '/' || src[0] == '%') {
+        } else if (src[0] == '+' || src[0] == '*' || src[0] == '/' || src[0] == '%') {
             tokens.push(token(src.shift(),TokenType.BinaryOperator));
+        } else if (src[0] == '-') {
+            if (isint(src[1])) {
+                let num = "-";
+                src.shift();
+                while (src.length > 0 && isint(src[0])) {
+                    num += src.shift();
+                }
+                tokens.push(token(num,TokenType.Number));
+            } else {                
+                tokens.push(token(src.shift(),TokenType.BinaryOperator));
+            }
         } else if (src[0] == '=') {
             tokens.push(token(src.shift(),TokenType.Equals));
         } else if (src[0] == ';') {

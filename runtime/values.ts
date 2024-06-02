@@ -81,6 +81,10 @@ export function make_bool(bool:boolean = true) {
     } as BooleanVal;
 }
 
+export function make_str(val: string): StringVal {
+    return { type: "string", value: val } as StringVal;
+}
+
 export function make_number(value = 0) {
     return {
         type: "number",
@@ -90,4 +94,9 @@ export function make_number(value = 0) {
 
 export function make_obj(obj: Map<string, RuntimeVal>): ObjectVal {
     return { type: "object", properties: obj } as ObjectVal;
+}
+
+
+export function make_array(arr: RuntimeVal[]): ArrayVal {
+    return { type: "array", values: arr } as ArrayVal;
 }

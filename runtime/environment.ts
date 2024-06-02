@@ -1,6 +1,7 @@
 import { Identifier, MemberExpr } from "../frontend/ast.ts";
 import { evaluate } from "./interpreter.ts";
-import { ObjectVal, ArrayVal, RuntimeVal,make_bool,make_native_func,make_null, make_number, make_obj, NumberVal } from "./values.ts";
+import { ObjectVal, ArrayVal, RuntimeVal,make_bool,make_native_func,make_null, make_number, make_obj, NumberVal, StringVal } from "./values.ts";
+import { printValues } from "./eval/native-fns.ts";
 
 export default class Environment {
     private parent?: Environment;
@@ -68,22 +69,15 @@ export default class Environment {
             case "object": {
                 const currentProp = (expr.property as Identifier).symbol;
                 const prop = property ? property.symbol : currentProp;
-
                 if (value) (pastVal as ObjectVal).properties.set(prop, value);
-
                 if (currentProp) pastVal = ((pastVal as ObjectVal).properties.get(currentProp) as ObjectVal);
 
                 return pastVal;
             }
             case "array": {
-
-                // Will evaluate the expression. Numbers will stay, but a variable will work. This allows for array[0] and array[ident].
                 const numRT: RuntimeVal = evaluate(expr.property, this);
-
                 if(numRT.type != "number") throw "Arrays do not have keys: " + expr.property;
-
                 const num = (numRT as NumberVal).value;
-
                 if(value) (pastVal as ArrayVal).values[num] = value;
 
                 return (pastVal as ArrayVal).values[num];
@@ -100,29 +94,74 @@ export function createGlobalEnv() {
     env.declareVar("false",make_bool(false),true);
     env.declareVar("null",make_null(),true);
 
-    env.declareVar("console",make_obj(
-        new Map()
-            .set("log",make_native_func((args) => {
-                console.log(...args);
-                return make_null();
-            }))
-
-            .set("error",make_native_func((args) => {
-                console.error(...args);
-                throw args;
-            }))
-
-            .set("clear",make_native_func(() => {
-                console.clear();
-                return make_null();
-            }))
+    env.declareVar("println",make_native_func((args) => {
+        printValues(args);
+        return make_null();
+    }
     ),true)
-
-    env.declareVar("Date",make_obj(
+    
+    env.declareVar("Math", make_obj(
         new Map()
-           .set("now",make_native_func(() => {
-                return make_number(Date.now());
+            .set("pi", make_number(Math.PI))
+            .set("e", make_number(Math.E))
+            .set("sqrt", make_native_func((args) => {
+                const arg = (args[0] as NumberVal).value;
+                return make_number(Math.sqrt(arg));
             }))
-    ),true);
+            .set("random", make_native_func((args) => {
+                const arg1 = (args[0] as NumberVal).value;
+                const arg2 = (args[1] as NumberVal).value;
+
+                const min = Math.ceil(arg1);
+                const max = Math.floor(arg2);
+                return make_number(Math.floor(Math.random() * (max - min + 1)) + min);
+            }))
+            .set("round", make_native_func((args) => {
+                const arg = (args[0] as NumberVal).value;
+                return make_number(Math.round(arg));
+            }))
+            .set("ceil", make_native_func((args) => {
+                const arg = (args[0] as NumberVal).value;
+                return make_number(Math.ceil(arg));
+            }))
+            .set("floor", make_native_func((args) => {
+                const arg = (args[0] as NumberVal).value;
+                return make_number(Math.floor(arg));
+            }))
+            .set("abs", make_native_func((args) => {
+                const arg = (args[0] as NumberVal).value;
+                return make_number(Math.abs(arg));
+            }))
+            .set("pow", make_native_func((args) => {
+                const arg = (args[0] as NumberVal).value;
+                const arg2 = (args[1] as NumberVal).value;
+                return make_number(Math.pow(arg,arg2));
+            }))
+            .set("cos",make_native_func((args) => {
+                const arg = (args[0] as NumberVal).value;
+                return make_number(Math.cos(arg));
+            }))
+            .set("acos",make_native_func((args) => {
+                const arg = (args[0] as NumberVal).value;
+                return make_number(Math.acos(arg));
+            }))
+            .set("asin",make_native_func((args) => {
+                const arg = (args[0] as NumberVal).value;
+                return make_number(Math.asin(arg));
+            }))
+            .set("sin",make_native_func((args) => {
+                const arg = (args[0] as NumberVal).value;
+                return make_number(Math.sin(arg));
+            }))            
+            .set("tan",make_native_func((args) => {
+                const arg = (args[0] as NumberVal).value;
+                return make_number(Math.tan(arg));
+            }))
+            .set("atan",make_native_func((args) => {
+                const arg = (args[0] as NumberVal).value;
+                return make_number(Math.atan(arg));
+            }))
+    ), true)
+
     return env
 }
