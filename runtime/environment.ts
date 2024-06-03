@@ -1,7 +1,7 @@
 import { Identifier, MemberExpr } from "../frontend/ast.ts";
 import { evaluate } from "./interpreter.ts";
-import { ObjectVal, ArrayVal, RuntimeVal,make_bool,make_native_func,make_null, make_number, make_obj, NumberVal, StringVal } from "./values.ts";
-import { printValues } from "./eval/native-fns.ts";
+import { ObjectVal, ArrayVal, RuntimeVal,make_bool,make_native_func,make_null, make_number, make_obj, NumberVal, StringVal, make_str } from "./values.ts";
+import { printValues, runtimeToJS } from "./eval/native-fns.ts";
 
 export default class Environment {
     private parent?: Environment;
@@ -99,6 +99,17 @@ export function createGlobalEnv() {
         return make_null();
     }
     ),true)
+    
+    env.declareVar("input",make_native_func((args) => {
+        let input;
+        if (args[0]) {
+            const inputtxt = runtimeToJS(args[0]);
+            input = prompt(inputtxt?.toString());
+        } else {
+            input = prompt("");
+        }
+        return make_str(input);
+    }),true);
     
     env.declareVar("Math", make_obj(
         new Map()
