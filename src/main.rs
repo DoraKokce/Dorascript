@@ -2,6 +2,7 @@ use crate::lexer::Lexer;
 use std::io::{self};
 
 mod ast;
+mod errors;
 mod lexer;
 mod parser;
 
@@ -15,6 +16,12 @@ fn main() {
         .expect("Failed to read stdin");
     let mut lexer = Lexer::new(buffer);
     let tokens = lexer.tokenize();
-    dbg!(&tokens);
+    if tokens.is_err() {
+        for err in tokens.err().unwrap() {
+            err.print();
+        }
+    } else {
+        println!("Tokens: {:?}", tokens.unwrap());
+    }
 }
 // Placeholder main function to ensure the program compiles.

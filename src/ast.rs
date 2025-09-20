@@ -1,3 +1,9 @@
+/*
+    Abstract Syntax Tree (AST) definitions.
+    Includes token types, expressions and statements.
+*/
+
+/* Token Types */
 #[derive(Debug, Clone, PartialEq)]
 pub enum ParantheseType {
     Round,
@@ -6,13 +12,48 @@ pub enum ParantheseType {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+pub struct Position {
+    pub line: usize,
+    pub column: usize,
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub enum Token {
-    EOF,
-    Operator(String),
-    Identifier(String),
+    EOF(Position),
+    Operator(String, Position),
+    Identifier(String, Position),
+    Number(f64, Position),
+    Keyword(String, Position),
+    StringLiteral(String, Position),
+    OpenParen(ParantheseType, Position),
+    CloseParen(ParantheseType, Position),
+}
+
+/* Expressions */
+#[derive(Debug, Clone, PartialEq)]
+pub enum Expr {
     Number(f64),
-    Keyword(String),
+    Identifier(String),
     StringLiteral(String),
-    OpenParen(ParantheseType),
-    CloseParen(ParantheseType),
+    BinaryOp {
+        left: Box<Expr>,
+        operator: Token,
+        right: Box<Expr>,
+    },
+    Assignment {
+        identifier: String,
+        value: Box<Expr>,
+    },
+    ParenExpr {
+        paren_type: ParantheseType,
+        expr: Box<Expr>,
+    },
+}
+
+/* Statements */
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum Stmt {
+    ExprStmt(Expr),
+    BlockStmt(Vec<Stmt>),
 }

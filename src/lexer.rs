@@ -6,12 +6,17 @@
     Not fully developed; serves as a foundation for further enhancements.
 */
 
-use crate::ast::{ParantheseType, Token};
+use crate::{
+    ast::{ParantheseType, Position, Token},
+    errors::LexError,
+};
 
 pub struct Lexer {
     index: usize,
     input: String,
     keywords: Vec<&'static str>,
+    pos: Position,
+    errors: Vec<LexError>,
 }
 
 impl Lexer {
@@ -20,10 +25,12 @@ impl Lexer {
             index: 0,
             input,
             keywords: vec!["fn", "let", "if", "else", "return", "while", "for"],
+            pos: Position { line: 1, column: 1 },
+            errors: vec![],
         }
     }
 
-    pub fn tokenize(&mut self) -> Result<Vec<Token>, String> {
+    pub fn tokenize(&mut self) -> Result<Vec<Token>, Vec<LexError>> {
         let mut tokens: Vec<Token> = vec![];
 
         while let Some(char) = self.peek() {
@@ -32,54 +39,79 @@ impl Lexer {
                     let next = self.input.chars().nth(self.index + 1);
                     if next == Some('/') {
                         self.advance_until(|c| c == '\n');
+                    } else {
+                        let op = self.tokenize_operator();
+                        if let Some(op) = op {
+                            tokens.push(op);
+                        }
+                        self.advance();
                     }
                 }
                 ' ' | '\n' | '\t' => {
                     self.advance();
                 }
                 '(' | '[' | '{' => {
-                    tokens.push(Token::OpenParen(match char {
-                        '(' => ParantheseType::Round,
-                        '[' => ParantheseType::Square,
-                        '{' => ParantheseType::Curly,
-                        _ => unreachable!(),
-                    }));
+                    tokens.push(Token::OpenParen(
+                        match char {
+                            '(' => ParantheseType::Round,
+                            '[' => ParantheseType::Square,
+                            '{' => ParantheseType::Curly,
+                            _ => unreachable!(),
+                        },
+                        self.pos.clone(),
+                    ));
                     self.advance();
                 }
                 ')' | ']' | '}' => {
-                    tokens.push(Token::CloseParen(match char {
-                        ')' => ParantheseType::Round,
-                        ']' => ParantheseType::Square,
-                        '}' => ParantheseType::Curly,
-                        _ => unreachable!(),
-                    }));
+                    tokens.push(Token::CloseParen(
+                        match char {
+                            ')' => ParantheseType::Round,
+                            ']' => ParantheseType::Square,
+                            '}' => ParantheseType::Curly,
+                            _ => unreachable!(),
+                        },
+                        self.pos.clone(),
+                    ));
                     self.advance();
                 }
                 '"' => {
-                    tokens.push(self.tokenize_string_literal()?);
+                    let token = self.tokenize_string_literal();
+                    if token == None {
+                        continue;
+                    }
+                    tokens.push(token.unwrap());
                 }
                 _ => {
                     if let Some(op) = self.tokenize_operator() {
                         tokens.push(op);
                         continue;
                     } else if char.is_digit(10) {
-                        tokens.push(self.tokenize_number()?);
+                        tokens.push(self.tokenize_number().unwrap());
                         continue;
                     } else if char.is_alphabetic() || char == '_' {
                         tokens.push(self.tokenize_identifier());
                         continue;
                     }
-                    return Err(format!("Unexpected character: {}", char));
+                    self.errors.push(LexError::new(
+                        format!("Invalid character: '{}'", char),
+                        self.pos.clone(),
+                    ));
+                    self.advance();
                 }
             }
         }
 
-        tokens.push(Token::EOF);
-        Ok(tokens)
+        if self.errors.is_empty() {
+            tokens.push(Token::EOF(self.pos.clone()));
+            Ok(tokens)
+        } else {
+            Err(self.errors.clone())
+        }
     }
 
-    fn tokenize_number(&mut self) -> Result<Token, String> {
+    fn tokenize_number(&mut self) -> Option<Token> {
         let mut number_str = String::new();
+        let start_pos = self.pos.clone();
 
         if let Some('0') = self.peek() {
             number_str.push('0');
@@ -97,8 +129,13 @@ impl Lexer {
                         }
                     }
                     match u64::from_str_radix(&number_str[2..], 16) {
-                        Ok(num) => return Ok(Token::Number(num as f64)),
-                        Err(_) => return Err(format!("Invalid hex number: {}", number_str)),
+                        Ok(num) => return Some(Token::Number(num as f64, start_pos)),
+                        Err(_) => {
+                            self.errors.push(LexError::new(
+                                format!("Invalid hex number: {}", number_str),
+                                self.pos.clone(),
+                            ));
+                        }
                     }
                 } else if next == 'b' || next == 'B' {
                     number_str.push(next);
@@ -112,8 +149,13 @@ impl Lexer {
                         }
                     }
                     match u64::from_str_radix(&number_str[2..], 2) {
-                        Ok(num) => return Ok(Token::Number(num as f64)),
-                        Err(_) => return Err(format!("Invalid binary number: {}", number_str)),
+                        Ok(num) => return Some(Token::Number(num as f64, start_pos)),
+                        Err(_) => {
+                            self.errors.push(LexError::new(
+                                format!("Invalid binary number: {}", number_str),
+                                self.pos.clone(),
+                            ));
+                        }
                     }
                 }
             }
@@ -128,13 +170,20 @@ impl Lexer {
             }
         }
         match number_str.parse::<f64>() {
-            Ok(num) => Ok(Token::Number(num)),
-            Err(_) => Err(format!("Invalid number: {}", number_str)),
+            Ok(num) => Some(Token::Number(num, start_pos)),
+            Err(_) => {
+                self.errors.push(LexError::new(
+                    format!("Invalid number: {}", number_str),
+                    self.pos.clone(),
+                ));
+                None
+            }
         }
     }
 
     fn tokenize_identifier(&mut self) -> Token {
         let mut ident_str = String::new();
+        let start_pos = self.pos.clone();
         while let Some(char) = self.peek() {
             if char.is_alphanumeric() || char == '_' {
                 ident_str.push(char);
@@ -145,9 +194,9 @@ impl Lexer {
         }
 
         if self.keywords.contains(&ident_str.as_str()) {
-            Token::Keyword(ident_str)
+            Token::Keyword(ident_str, start_pos)
         } else {
-            Token::Identifier(ident_str)
+            Token::Identifier(ident_str, start_pos)
         }
     }
 
@@ -156,6 +205,7 @@ impl Lexer {
             Some(c) => c,
             None => return None,
         };
+        let start_pos = self.pos.clone();
 
         if let Some(second) = self.input.chars().nth(self.index + 1) {
             let two = format!("{}{}", first, second);
@@ -168,10 +218,10 @@ impl Lexer {
             if multi_ops.contains(&two.as_str()) {
                 self.advance();
                 self.advance();
-                return Some(Token::Operator(two));
+                return Some(Token::Operator(two, start_pos));
             } else if ops.contains(&first) {
                 self.advance();
-                return Some(Token::Operator(first.to_string()));
+                return Some(Token::Operator(first.to_string(), start_pos));
             } else {
                 return None;
             }
@@ -180,13 +230,14 @@ impl Lexer {
         None
     }
 
-    fn tokenize_string_literal(&mut self) -> Result<Token, String> {
+    fn tokenize_string_literal(&mut self) -> Option<Token> {
         let mut string_lit = String::new();
+        let start_pos = self.pos.clone();
         self.advance();
         while let Some(char) = self.peek() {
             if char == '"' {
                 self.advance();
-                return Ok(Token::StringLiteral(string_lit));
+                return Some(Token::StringLiteral(string_lit, start_pos));
             } else if char == '\\' {
                 self.advance();
                 if let Some(escaped) = self.peek() {
@@ -198,13 +249,18 @@ impl Lexer {
                         '\\' => string_lit.push('\\'),
                         _ => {
                             let num = self.tokenize_number();
-                            let Some(Token::Number(n)) = num.ok() else {
-                                return Err("Invalid escape sequence".to_string());
-                            };
-                            string_lit.push(
-                                char::from_u32(n.floor() as u32)
-                                    .ok_or("Invalid Unicode code point")?,
-                            );
+                            if let Some(Token::Number(n, _)) = num {
+                                string_lit.push(char::from_u32(n.floor() as u32).unwrap_or_else(
+                                    || {
+                                        self.errors.push(LexError::new(
+                                            format!("Invalid escape sequence: \\{}", escaped),
+                                            self.pos.clone(),
+                                        ));
+                                        '\u{FFFD}'
+                                    },
+                                ));
+                            }
+
                             continue;
                         }
                     }
@@ -215,7 +271,11 @@ impl Lexer {
                 self.advance();
             }
         }
-        Err("Unterminated string literal".to_string())
+        self.errors.push(LexError::new(
+            "Unterminated string literal".to_string(),
+            self.pos.clone(),
+        ));
+        None
     }
 
     fn peek(&self) -> Option<char> {
@@ -225,6 +285,12 @@ impl Lexer {
     fn advance(&mut self) -> Option<char> {
         let old = self.input.chars().nth(self.index);
         self.index += 1;
+        if old == Some('\n') {
+            self.pos.line += 1;
+            self.pos.column = 1;
+        } else {
+            self.pos.column += 1;
+        }
         old
     }
 
@@ -251,14 +317,25 @@ mod tests {
         let input = r#""Hello, World!\nThis is a test string with a number: 42 and a hex: \0x2A""#
             .to_string();
         let mut lexer = Lexer::new(input);
-        let tokens = lexer.tokenize().expect("tokenize failed");
+        let tokens = lexer
+            .tokenize()
+            .inspect_err(|err| {
+                for e in err {
+                    e.print();
+                }
+            })
+            .unwrap();
 
         let expected = vec![
             Token::StringLiteral(
                 "Hello, World!\nThis is a test string with a number: 42 and a hex: \x2A"
                     .to_string(),
+                Position { line: 1, column: 1 },
             ),
-            Token::EOF,
+            Token::EOF(Position {
+                line: 1,
+                column: 74,
+            }),
         ];
 
         assert_eq!(tokens, expected);
@@ -271,18 +348,63 @@ mod tests {
         let tokens = lexer.tokenize().expect("tokenize failed");
 
         let expected = vec![
-            Token::Keyword("fn".to_string()),
-            Token::Identifier("main".to_string()),
-            Token::OpenParen(ParantheseType::Round),
-            Token::CloseParen(ParantheseType::Round),
-            Token::OpenParen(ParantheseType::Curly),
-            Token::Keyword("let".to_string()),
-            Token::Identifier("x".to_string()),
-            Token::Operator("=".to_string()),
-            Token::Number(5.0),
-            Token::Operator(";".to_string()),
-            Token::CloseParen(ParantheseType::Curly),
-            Token::EOF,
+            Token::Keyword("fn".to_string(), Position { line: 1, column: 1 }),
+            Token::Identifier("main".to_string(), Position { line: 1, column: 4 }),
+            Token::OpenParen(ParantheseType::Round, Position { line: 1, column: 8 }),
+            Token::CloseParen(ParantheseType::Round, Position { line: 1, column: 9 }),
+            Token::OpenParen(
+                ParantheseType::Curly,
+                Position {
+                    line: 1,
+                    column: 11,
+                },
+            ),
+            Token::Keyword(
+                "let".to_string(),
+                Position {
+                    line: 1,
+                    column: 13,
+                },
+            ),
+            Token::Identifier(
+                "x".to_string(),
+                Position {
+                    line: 1,
+                    column: 17,
+                },
+            ),
+            Token::Operator(
+                "=".to_string(),
+                Position {
+                    line: 1,
+                    column: 19,
+                },
+            ),
+            Token::Number(
+                5.0,
+                Position {
+                    line: 1,
+                    column: 21,
+                },
+            ),
+            Token::Operator(
+                ";".to_string(),
+                Position {
+                    line: 1,
+                    column: 22,
+                },
+            ),
+            Token::CloseParen(
+                ParantheseType::Curly,
+                Position {
+                    line: 1,
+                    column: 24,
+                },
+            ),
+            Token::EOF(Position {
+                line: 1,
+                column: 25,
+            }),
         ];
 
         assert_eq!(tokens, expected);
@@ -295,24 +417,99 @@ mod tests {
         let tokens = lexer.tokenize().expect("tokenize failed");
 
         let expected = vec![
-            Token::Operator("+".to_string()),
-            Token::Operator("-".to_string()),
-            Token::Operator("*".to_string()),
-            Token::Operator("/".to_string()),
-            Token::Operator("%".to_string()),
-            Token::Operator("=".to_string()),
-            Token::Operator("<".to_string()),
-            Token::Operator(">".to_string()),
-            Token::Operator("&".to_string()),
-            Token::Operator("|".to_string()),
-            Token::Operator(";".to_string()),
-            Token::Operator("==".to_string()),
-            Token::Operator("<=".to_string()),
-            Token::Operator(">=".to_string()),
-            Token::Operator("!=".to_string()),
-            Token::Operator("&&".to_string()),
-            Token::Operator("||".to_string()),
-            Token::EOF,
+            Token::Operator("+".to_string(), Position { line: 1, column: 1 }),
+            Token::Operator("-".to_string(), Position { line: 1, column: 3 }),
+            Token::Operator("*".to_string(), Position { line: 1, column: 5 }),
+            Token::Operator("/".to_string(), Position { line: 1, column: 7 }),
+            Token::Operator("%".to_string(), Position { line: 1, column: 9 }),
+            Token::Operator(
+                "=".to_string(),
+                Position {
+                    line: 1,
+                    column: 11,
+                },
+            ),
+            Token::Operator(
+                "<".to_string(),
+                Position {
+                    line: 1,
+                    column: 13,
+                },
+            ),
+            Token::Operator(
+                ">".to_string(),
+                Position {
+                    line: 1,
+                    column: 15,
+                },
+            ),
+            Token::Operator(
+                "&".to_string(),
+                Position {
+                    line: 1,
+                    column: 17,
+                },
+            ),
+            Token::Operator(
+                "|".to_string(),
+                Position {
+                    line: 1,
+                    column: 19,
+                },
+            ),
+            Token::Operator(
+                ";".to_string(),
+                Position {
+                    line: 1,
+                    column: 21,
+                },
+            ),
+            Token::Operator(
+                "==".to_string(),
+                Position {
+                    line: 1,
+                    column: 23,
+                },
+            ),
+            Token::Operator(
+                "<=".to_string(),
+                Position {
+                    line: 1,
+                    column: 26,
+                },
+            ),
+            Token::Operator(
+                ">=".to_string(),
+                Position {
+                    line: 1,
+                    column: 29,
+                },
+            ),
+            Token::Operator(
+                "!=".to_string(),
+                Position {
+                    line: 1,
+                    column: 32,
+                },
+            ),
+            Token::Operator(
+                "&&".to_string(),
+                Position {
+                    line: 1,
+                    column: 35,
+                },
+            ),
+            Token::Operator(
+                "||".to_string(),
+                Position {
+                    line: 1,
+                    column: 38,
+                },
+            ),
+            Token::EOF(Position {
+                line: 1,
+                column: 40,
+            }),
         ];
 
         assert_eq!(tokens, expected);
