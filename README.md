@@ -2,7 +2,7 @@
 
 ###
 
-<img align="left" height="200" src="https://raw.githubusercontent.com/DoraKokce/Dorascript/61c9dcb79b2485c6465df64e8090ab4659402b94/Dorascript.svg"  />
+<img align="left" height="200" src="https://raw.githubusercontent.com/DoraKokce/Dorascript/refs/heads/main/Dorascript.svg"/>
 
 ###
 
