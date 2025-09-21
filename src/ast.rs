@@ -18,18 +18,62 @@ pub struct Position {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum Token {
-    EOF(Position),
-    Operator(String, Position),
-    Identifier(String, Position),
-    Number(f64, Position),
-    Keyword(String, Position),
-    StringLiteral(String, Position),
-    OpenParen(ParantheseType, Position),
-    CloseParen(ParantheseType, Position),
+pub struct Token {
+    pub t: TokenType,
+    pub position: Position,
 }
 
-/* Expressions */
+impl Token {
+    pub fn new(t: TokenType, position: Position) -> Self {
+        Token { t, position }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum TokenType {
+    EOF,
+    Operator(String),
+    Identifier(String),
+    Number(f64),
+    Keyword(String),
+    StringLiteral(String),
+    OpenParen(ParantheseType),
+    CloseParen(ParantheseType),
+    Semicolon,
+}
+
+impl TokenType {
+    pub fn value(&self) -> String {
+        match self {
+            TokenType::EOF => "EOF".to_string(),
+            TokenType::Operator(op) => op.clone(),
+            TokenType::Identifier(id) => id.clone(),
+            TokenType::Number(num) => num.to_string(),
+            TokenType::Keyword(kw) => kw.clone(),
+            TokenType::StringLiteral(s) => s.clone(),
+            TokenType::OpenParen(pt) => match pt {
+                ParantheseType::Round => "(".to_string(),
+                ParantheseType::Curly => "{".to_string(),
+                ParantheseType::Square => "[".to_string(),
+            },
+            TokenType::CloseParen(pt) => match pt {
+                ParantheseType::Round => ")".to_string(),
+                ParantheseType::Curly => "}".to_string(),
+                ParantheseType::Square => "]".to_string(),
+            },
+            TokenType::Semicolon => ";".to_string(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, PartialOrd)]
+pub enum BindingPower {
+    Eof = -1,
+    Default,
+    Additive,
+    Multiplicative,
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum Expr {
     Number(f64),
@@ -37,23 +81,13 @@ pub enum Expr {
     StringLiteral(String),
     BinaryOp {
         left: Box<Expr>,
-        operator: Token,
+        op: String,
         right: Box<Expr>,
-    },
-    Assignment {
-        identifier: String,
-        value: Box<Expr>,
-    },
-    ParenExpr {
-        paren_type: ParantheseType,
-        expr: Box<Expr>,
     },
 }
 
-/* Statements */
-
 #[derive(Debug, Clone, PartialEq)]
 pub enum Stmt {
+    BlockStmt(Vec<Box<Stmt>>),
     ExprStmt(Expr),
-    BlockStmt(Vec<Stmt>),
 }

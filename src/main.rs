@@ -1,4 +1,4 @@
-use crate::lexer::Lexer;
+use crate::{ast::Token, lexer::Lexer, parser::Parser};
 use std::io::{self};
 
 mod ast;
@@ -20,8 +20,9 @@ fn main() {
         for err in tokens.err().unwrap() {
             err.print();
         }
-    } else {
-        println!("Tokens: {:?}", tokens.unwrap());
+        return;
     }
+    let mut parser: Parser = Parser::new(tokens.unwrap());
+    let ast = parser.parse();
+    println!("{:?}", ast);
 }
-// Placeholder main function to ensure the program compiles.
