@@ -20,7 +20,7 @@ impl LexError {
     pub fn print(&self) {
         eprintln!(
             "Lexer error at line {}, column {}:\n\t{}",
-            self.position.line, self.position.column, self.message
+            self.position.row, self.position.column, self.message
         );
     }
 }
@@ -33,7 +33,7 @@ impl ParseError {
     pub fn print(&self) {
         eprintln!(
             "Parser error at line {}, column {}:\n\t{}",
-            self.position.line, self.position.column, self.message
+            self.position.row, self.position.column, self.message
         );
     }
 }

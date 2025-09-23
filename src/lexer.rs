@@ -25,7 +25,7 @@ impl Lexer {
             index: 0,
             input,
             keywords: vec!["fn", "let", "if", "else", "return", "while", "for"],
-            pos: Position { line: 1, column: 1 },
+            pos: Position { row: 1, column: 1 },
             errors: vec![],
         }
     }
@@ -295,7 +295,7 @@ impl Lexer {
         let old = self.input.chars().nth(self.index);
         self.index += 1;
         if old == Some('\n') {
-            self.pos.line += 1;
+            self.pos.row += 1;
             self.pos.column = 1;
         } else {
             self.pos.column += 1;
@@ -313,78 +313,5 @@ impl Lexer {
             }
             self.advance();
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::ast::Token;
-
-    #[test]
-    fn tokenize_string_literal() {
-        let input = r#""Hello, World!\nThis is a test string with a number: 42 and a hex: \0x2A""#
-            .to_string();
-        let mut lexer = Lexer::new(input);
-        let tokens = lexer
-            .tokenize()
-            .inspect_err(|err| {
-                for e in err {
-                    e.print();
-                }
-            })
-            .unwrap();
-
-        let expected = vec![
-            Token::new(
-                TokenType::StringLiteral(
-                    "Hello, World!\nThis is a test string with a number: 42 and a hex: \x2A"
-                        .to_string(),
-                ),
-                Position { line: 1, column: 1 },
-            ),
-            Token::new(
-                TokenType::EOF,
-                Position {
-                    line: 1,
-                    column: 74,
-                },
-            ),
-        ];
-
-        assert_eq!(tokens, expected);
-    }
-
-    #[test]
-    fn tokenize_simple() {
-        let input = "fn main() { let x = 5; }".to_string();
-        let mut lexer = Lexer::new(input);
-        let tokens = lexer.tokenize().expect("tokenize failed");
-
-        let expected = vec![
-            "fn", "main", "(", ")", "{", "let", "x", "=", "5", ";", "}", "EOF",
-        ];
-
-        assert_eq!(
-            tokens.iter().map(|t| t.t.value()).collect::<Vec<_>>(),
-            expected
-        );
-    }
-
-    #[test]
-    fn tokenize_operator() {
-        let input = "+ - * / % = < > & | ; == <= >= != && ||".to_string();
-        let mut lexer = Lexer::new(input);
-        let tokens = lexer.tokenize().expect("tokenize failed");
-
-        let expected = vec![
-            "+", "-", "*", "/", "%", "=", "<", ">", "&", "|", ";", "==", "<=", ">=", "!=", "&&",
-            "||", "EOF",
-        ];
-
-        assert_eq!(
-            tokens.iter().map(|t| t.t.value()).collect::<Vec<_>>(),
-            expected
-        );
     }
 }

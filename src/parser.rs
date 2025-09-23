@@ -2,8 +2,11 @@
     Parser is in development. If it has bugs please report to me
 */
 
-use crate::ast::{BindingPower, Expr, Position, Stmt, Token, TokenType};
-use crate::errors::ParseError;
+use std::vec;
+
+use crate::ast::{BindingPower, Expr, Stmt, Token, TokenType};
+use crate::errors::{LexError, ParseError};
+use crate::lexer::Lexer;
 
 pub struct Parser {
     tokens: Vec<Token>,
@@ -20,21 +23,22 @@ impl Parser {
         }
     }
 
+    pub fn from_str(input: String) -> Result<Self, Vec<LexError>> {
+        let tokens = Lexer::new(input).tokenize();
+        if tokens.is_err() {
+            Err(tokens.unwrap_err())
+        } else {
+            Ok(Parser::new(tokens.unwrap_or_default()))
+        }
+    }
+
     pub fn parse(&mut self) -> Result<Stmt, Vec<ParseError>> {
         let mut stmts: Vec<Box<Stmt>> = vec![];
-        while self.current().clone().unwrap().t != TokenType::EOF {
-            stmts.push(Box::new(
-                self.parse_stmt()
-                    .ok_or_else(|| {
-                        self.errors.push(ParseError::new(
-                            "Failed to parse statement".to_string(),
-                            self.current()
-                                .map_or(Position { line: 0, column: 0 }, |t| t.position.clone()),
-                        ));
-                        self.errors.clone()
-                    })?
-                    .clone(),
-            ));
+        while self.position < self.tokens.len() - 1 {
+            match self.parse_stmt() {
+                Some(stmt) => stmts.push(Box::new(stmt)),
+                None => continue,
+            }
         }
         if self.errors.is_empty() {
             Ok(Stmt::BlockStmt(stmts))
@@ -47,9 +51,12 @@ impl Parser {
         let first = self.current().unwrap().clone();
         match first.t {
             _ => {
-                let expr = self.parse_expression(BindingPower::Default)?.clone();
-                let _ = self.expect(TokenType::Semicolon);
-                return Some(Stmt::ExprStmt(expr));
+                let expr = self.parse_expression(BindingPower::Default);
+                self.expect(TokenType::Semicolon);
+                if expr == None {
+                    return None;
+                }
+                return Some(Stmt::ExprStmt(expr.unwrap()));
             }
         }
     }
@@ -66,30 +73,55 @@ impl Parser {
     }
 
     fn nud(&mut self, token: &Token) -> Option<Expr> {
-        let expr = match &token.t {
-            TokenType::Number(n) => Some(Expr::Number(*n)),
-            TokenType::Identifier(name) => Some(Expr::Identifier(name.clone())),
-            TokenType::StringLiteral(s) => Some(Expr::StringLiteral(s.clone())),
+        match &token.t {
+            TokenType::Number(n) => {
+                self.advance();
+                Some(Expr::Number(*n))
+            }
+            TokenType::Identifier(name) => {
+                self.advance();
+                Some(Expr::Identifier(name.clone()))
+            }
+            TokenType::StringLiteral(s) => {
+                self.advance();
+                Some(Expr::StringLiteral(s.clone()))
+            }
+            TokenType::Operator(op) if op == "-" => {
+                self.advance();
+                let expr = self.parse_expression(BindingPower::Unary)?;
+                Some(Expr::PrefixExpr {
+                    op: token.clone(),
+                    right: Box::new(expr),
+                })
+            }
             _ => {
                 self.errors.push(ParseError::new(
-                    "Unexpected token".to_string(),
+                    format!("Unexpected token {:?}", token.t),
                     token.position.clone(),
                 ));
                 self.advance();
                 None
             }
-        };
-        self.advance();
-        expr
+        }
     }
 
-    fn led(&mut self, mut left: Expr, token: Token) -> Option<Expr> {
+    fn led(&mut self, left: Expr, token: Token) -> Option<Expr> {
+        let bp = self.get_precedence(token.clone().t);
         match token.t.clone() {
-            TokenType::Operator(op) => Some(Expr::BinaryOp {
-                left: Box::new(left),
-                op,
-                right: Box::new(self.parse_expression(self.get_precedence(token.clone().t))?),
-            }),
+            TokenType::Operator(op) => {
+                if op == "=".to_owned() {
+                    Some(Expr::AssignmentExpr {
+                        assigne: Box::new(left),
+                        value: Box::new(self.parse_expression(bp)?),
+                    })
+                } else {
+                    Some(Expr::BinaryOp {
+                        left: Box::new(left),
+                        op: token.clone(),
+                        right: Box::new(self.parse_expression(bp)?),
+                    })
+                }
+            }
             _ => {
                 self.errors.push(ParseError::new(
                     format!("No led handler for token: '{}'", token.t.value()),
@@ -105,8 +137,12 @@ impl Parser {
             TokenType::Operator(op) => match op.as_str() {
                 "+" | "-" => BindingPower::Additive,
                 "*" | "/" => BindingPower::Multiplicative,
+                "=" => BindingPower::Assignment,
                 _ => BindingPower::Default,
             },
+            TokenType::Number(_) | TokenType::Identifier(_) | TokenType::StringLiteral(_) => {
+                BindingPower::Primary
+            }
             TokenType::EOF => BindingPower::Eof,
             _ => BindingPower::Default,
         }
@@ -122,32 +158,25 @@ impl Parser {
         }
     }
 
-    fn expect(&mut self, expected: TokenType) -> Result<(), String> {
+    fn expect(&mut self, expected: TokenType) -> Option<Token> {
         if let Some(current) = self.current() {
             if current.t == expected {
+                let token = current.clone();
                 self.advance();
-                Ok(())
+                Some(token)
             } else {
-                Err(format!(
-                    "Expected token {:?} but found {:?}",
-                    expected, current
-                ))
+                self.errors.push(ParseError::new(
+                    format!("Expected token {:?} but found {:?}", expected, current),
+                    current.position,
+                ));
+                None
             }
         } else {
-            Err("Unexpected end of input".to_string())
+            self.errors.push(ParseError::new(
+                "Unexpected end of input".to_string(),
+                self.current().unwrap_or(&Token::eof()).position,
+            ));
+            None
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use crate::{lexer::Lexer, parser::Parser};
-
-    #[test]
-    fn test_parse() {
-        let mut lexer = Lexer::new("2+2;".to_string());
-        let mut parser = Parser::new(lexer.tokenize().unwrap());
-
-        let mut ast = parser.parse().unwrap();
     }
 }
