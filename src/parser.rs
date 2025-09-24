@@ -98,7 +98,7 @@ impl Parser {
             TokenType::OpenParen(t) if t == &ParantheseType::Square => {
                 self.advance();
                 let mut exprs: Vec<Box<Expr>> = vec![];
-                loop {
+                while self.current()?.t.value() != "]" {
                     exprs.push(Box::new(self.parse_expression(BindingPower::Default)?));
                     if self.current()?.t.value() == "]" {
                         break;
@@ -126,12 +126,12 @@ impl Parser {
         match token.t.clone() {
             TokenType::Operator(op) => {
                 self.advance();
-                if op == "=".to_owned() {
+                if ["=", "+=", "-=", "*=", "/="].contains(&op.as_str()) {
                     Some(Expr::AssignmentExpr {
                         assigne: Box::new(left),
                         value: Box::new(self.parse_expression(bp)?),
                     })
-                } else if op == ".".to_owned() {
+                } else if op == "." {
                     Some(Expr::MemberExpr {
                         member: Box::new(left),
                         property: Box::new(self.parse_expression(BindingPower::Default)?),
@@ -160,7 +160,7 @@ impl Parser {
                     })
                 } else if t == ParantheseType::Round {
                     let mut args: Vec<Box<Expr>> = vec![];
-                    loop {
+                    while self.current()?.t.value() != ")" {
                         args.push(Box::new(self.parse_expression(BindingPower::Default)?));
                         if self.current()?.t.value() == ")" {
                             break;

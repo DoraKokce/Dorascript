@@ -26,7 +26,7 @@ impl Lexer {
             index: 0,
             input,
             keywords: vec!["fn", "let", "if", "else", "return", "while", "for"],
-            pos: Position { row: 1, column: 1 },
+            pos: Position { row: 1, column: 0 },
             errors: vec![],
             file_name,
         }
