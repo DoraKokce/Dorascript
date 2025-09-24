@@ -56,6 +56,21 @@ pub enum TokenType {
 }
 
 impl TokenType {
+    pub fn same_type(&self, other: &Self) -> bool {
+        use TokenType::*;
+        match (self, other) {
+            (Identifier(_), Identifier(_)) => true,
+            (Number(_), Number(_)) => true,
+            (StringLiteral(_), StringLiteral(_)) => true,
+            (Operator(a), Operator(b)) => a == b, // keep exact match for operators
+            (OpenParen(a), OpenParen(b)) => a == b,
+            (CloseParen(a), CloseParen(b)) => a == b,
+            _ => std::mem::discriminant(self) == std::mem::discriminant(other),
+        }
+    }
+}
+
+impl TokenType {
     pub fn value(&self) -> String {
         match self {
             TokenType::EOF => "EOF".to_string(),
@@ -87,6 +102,7 @@ pub enum BindingPower {
     Additive,
     Multiplicative,
     Unary,
+    Member,
     Primary,
 }
 
@@ -108,6 +124,14 @@ pub enum Expr {
         op: Token,
         right: Box<Expr>,
     },
+    MemberExpr {
+        member: Box<Expr>,
+        property: Box<Expr>,
+    },
+    ComputedExpr {
+        member: Box<Expr>,
+        property: Box<Expr>,
+    },
 }
 
 impl Expr {
@@ -123,11 +147,11 @@ impl Expr {
             }
             Expr::StringLiteral(s) => result += &format!("{}{}String({})\n", prefix, connector, s),
             Expr::PrefixExpr { op, right } => {
-                result += &format!("{}{}PrefixExpr({:?})\n", prefix, connector, op);
+                result += &format!("{}{}PrefixExpr({})\n", prefix, connector, op.t.value());
                 result += &right.format(&(prefix.to_string() + padding), true);
             }
             Expr::BinaryOp { left, op, right } => {
-                result += &format!("{}{}BinaryOp({:?})\n", prefix, connector, op);
+                result += &format!("{}{}BinaryOp({})\n", prefix, connector, op.t.value());
                 result += &left.format(&(prefix.to_string() + padding), false);
                 result += &right.format(&(prefix.to_string() + padding), true);
             }
@@ -135,6 +159,16 @@ impl Expr {
                 result += &format!("{}{}AssignmentExpr\n", prefix, connector);
                 result += &assigne.format(&(prefix.to_string() + padding), false);
                 result += &value.format(&(prefix.to_string() + padding), true);
+            }
+            Expr::MemberExpr { member, property } => {
+                result += &format!("{}{}MemberExpr\n", prefix, connector);
+                result += &member.format(&(prefix.to_string() + padding), false);
+                result += &property.format(&(prefix.to_string() + padding), true);
+            }
+            Expr::ComputedExpr { member, property } => {
+                result += &format!("{}{}ComputedExpr\n", prefix, connector);
+                result += &member.format(&(prefix.to_string() + padding), false);
+                result += &property.format(&(prefix.to_string() + padding), true);
             }
         }
 

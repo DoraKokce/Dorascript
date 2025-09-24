@@ -4,7 +4,7 @@
 
 use std::vec;
 
-use crate::ast::{BindingPower, Expr, Stmt, Token, TokenType};
+use crate::ast::{BindingPower, Expr, ParantheseType, Stmt, Token, TokenType};
 use crate::errors::Error;
 use crate::lexer::Lexer;
 
@@ -68,7 +68,6 @@ impl Parser {
         let mut left = self.nud(&first)?;
         while self.get_precedence(self.current()?.clone().t) > limit {
             let next = self.current()?.clone();
-            self.advance();
             left = self.led(left, next)?.clone();
         }
         Some(left)
@@ -113,10 +112,16 @@ impl Parser {
         let bp = self.get_precedence(token.clone().t);
         match token.t.clone() {
             TokenType::Operator(op) => {
+                self.advance();
                 if op == "=".to_owned() {
                     Some(Expr::AssignmentExpr {
                         assigne: Box::new(left),
                         value: Box::new(self.parse_expression(bp)?),
+                    })
+                } else if op == ".".to_owned() {
+                    Some(Expr::MemberExpr {
+                        member: Box::new(left),
+                        property: Box::new(self.parse_expression(BindingPower::Default)?),
                     })
                 } else {
                     Some(Expr::BinaryOp {
@@ -124,6 +129,19 @@ impl Parser {
                         op: token.clone(),
                         right: Box::new(self.parse_expression(bp)?),
                     })
+                }
+            }
+            TokenType::OpenParen(t) => {
+                self.advance();
+                if t == ParantheseType::Square {
+                    let expr = self.parse_expression(BindingPower::Default)?;
+                    self.expect(TokenType::CloseParen(ParantheseType::Square));
+                    Some(Expr::ComputedExpr {
+                        member: Box::new(left),
+                        property: Box::new(expr),
+                    })
+                } else {
+                    None
                 }
             }
             _ => {
@@ -144,8 +162,10 @@ impl Parser {
                 "+" | "-" => BindingPower::Additive,
                 "*" | "/" => BindingPower::Multiplicative,
                 "=" => BindingPower::Assignment,
+                "." => BindingPower::Member,
                 _ => BindingPower::Default,
             },
+            TokenType::OpenParen(ParantheseType::Square) => BindingPower::Member, // 👈 add this
             TokenType::Number(_) | TokenType::Identifier(_) | TokenType::StringLiteral(_) => {
                 BindingPower::Primary
             }
@@ -166,7 +186,7 @@ impl Parser {
 
     fn expect(&mut self, expected: TokenType) -> Option<Token> {
         if let Some(current) = self.current() {
-            if current.t == expected {
+            if current.t.same_type(&expected) {
                 let token = current.clone();
                 self.advance();
                 Some(token)
