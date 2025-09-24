@@ -103,6 +103,7 @@ pub enum BindingPower {
     Additive,
     Multiplicative,
     Unary,
+    Call,
     Member,
     Primary,
 }
@@ -137,6 +138,10 @@ pub enum Expr {
     RangeExpr {
         lower: Box<Expr>,
         upper: Box<Expr>,
+    },
+    CallExpr {
+        method: Box<Expr>,
+        args: Vec<Box<Expr>>,
     },
 }
 
@@ -187,6 +192,15 @@ impl Expr {
                 result += &format!("{}{}RangeExpr\n", prefix, connector);
                 result += &upper.format(&(prefix.to_string() + padding), false);
                 result += &lower.format(&(prefix.to_string() + padding), true);
+            }
+            Expr::CallExpr { method, args } => {
+                result += &format!("{}{}CallExpr\n", prefix, connector);
+                result += &method.format(&(prefix.to_string() + padding), false);
+                result += &format!("{}└── Args\n", prefix.to_string() + padding);
+                for (i, arg) in args.iter().enumerate() {
+                    let is_last = i == args.len() - 1;
+                    result += &arg.format(&(prefix.to_string() + padding + padding), is_last);
+                }
             }
         }
 

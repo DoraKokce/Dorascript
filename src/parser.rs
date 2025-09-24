@@ -158,6 +158,20 @@ impl Parser {
                         member: Box::new(left),
                         property: Box::new(expr),
                     })
+                } else if t == ParantheseType::Round {
+                    let mut args: Vec<Box<Expr>> = vec![];
+                    loop {
+                        args.push(Box::new(self.parse_expression(BindingPower::Default)?));
+                        if self.current()?.t.value() == ")" {
+                            break;
+                        }
+                        self.expect(TokenType::Operator(",".to_string()));
+                    }
+                    self.expect(TokenType::CloseParen(ParantheseType::Round));
+                    Some(Expr::CallExpr {
+                        method: Box::new(left),
+                        args,
+                    })
                 } else {
                     None
                 }
@@ -184,7 +198,8 @@ impl Parser {
                 ".." | "&&" | "||" => BindingPower::Logical,
                 _ => BindingPower::Default,
             },
-            TokenType::OpenParen(ParantheseType::Square) => BindingPower::Member, // 👈 add this
+            TokenType::OpenParen(ParantheseType::Square) => BindingPower::Member,
+            TokenType::OpenParen(ParantheseType::Round) => BindingPower::Call,
             TokenType::Number(_) | TokenType::Identifier(_) | TokenType::StringLiteral(_) => {
                 BindingPower::Primary
             }
