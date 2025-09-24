@@ -178,7 +178,9 @@ impl Lexer {
         }
 
         while let Some(char) = self.peek() {
-            if char.is_digit(10) || char == '.' {
+            if char.is_digit(10)
+                || (char == '.' && self.input.chars().nth(self.index + 1)?.is_digit(10))
+            {
                 number_str.push(char);
                 self.advance();
             } else {

@@ -99,6 +99,7 @@ pub enum BindingPower {
     Eof = 0,
     Default,
     Assignment,
+    Logical,
     Additive,
     Multiplicative,
     Unary,
@@ -111,6 +112,7 @@ pub enum Expr {
     Number(f64),
     Identifier(String),
     StringLiteral(String),
+    ArrayLiteral(Vec<Box<Expr>>),
     BinaryOp {
         left: Box<Expr>,
         op: Token,
@@ -132,6 +134,10 @@ pub enum Expr {
         member: Box<Expr>,
         property: Box<Expr>,
     },
+    RangeExpr {
+        lower: Box<Expr>,
+        upper: Box<Expr>,
+    },
 }
 
 impl Expr {
@@ -146,6 +152,13 @@ impl Expr {
                 result += &format!("{}{}Identifier({})\n", prefix, connector, name)
             }
             Expr::StringLiteral(s) => result += &format!("{}{}String({})\n", prefix, connector, s),
+            Expr::ArrayLiteral(exprs) => {
+                result += &format!("{}{}ArrayLiteral\n", prefix, connector);
+                for (i, expr) in exprs.iter().enumerate() {
+                    let is_last = i == exprs.len() - 1;
+                    result += &expr.format(&(prefix.to_string() + padding), is_last);
+                }
+            }
             Expr::PrefixExpr { op, right } => {
                 result += &format!("{}{}PrefixExpr({})\n", prefix, connector, op.t.value());
                 result += &right.format(&(prefix.to_string() + padding), true);
@@ -169,6 +182,11 @@ impl Expr {
                 result += &format!("{}{}ComputedExpr\n", prefix, connector);
                 result += &member.format(&(prefix.to_string() + padding), false);
                 result += &property.format(&(prefix.to_string() + padding), true);
+            }
+            Expr::RangeExpr { lower, upper } => {
+                result += &format!("{}{}RangeExpr\n", prefix, connector);
+                result += &upper.format(&(prefix.to_string() + padding), false);
+                result += &lower.format(&(prefix.to_string() + padding), true);
             }
         }
 

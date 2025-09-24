@@ -95,6 +95,19 @@ impl Parser {
                     right: Box::new(expr),
                 })
             }
+            TokenType::OpenParen(t) if t == &ParantheseType::Square => {
+                self.advance();
+                let mut exprs: Vec<Box<Expr>> = vec![];
+                loop {
+                    exprs.push(Box::new(self.parse_expression(BindingPower::Default)?));
+                    if self.current()?.t.value() == "]" {
+                        break;
+                    }
+                    self.expect(TokenType::Operator(",".to_string()));
+                }
+                self.expect(TokenType::CloseParen(ParantheseType::Square));
+                Some(Expr::ArrayLiteral(exprs))
+            }
             _ => {
                 self.errors.push(Error::new(
                     format!("unexpected token '{}'", token.t.value()),
@@ -122,6 +135,11 @@ impl Parser {
                     Some(Expr::MemberExpr {
                         member: Box::new(left),
                         property: Box::new(self.parse_expression(BindingPower::Default)?),
+                    })
+                } else if op == ".." {
+                    Some(Expr::RangeExpr {
+                        lower: Box::new(left),
+                        upper: Box::new(self.parse_expression(BindingPower::Default)?),
                     })
                 } else {
                     Some(Expr::BinaryOp {
@@ -163,6 +181,7 @@ impl Parser {
                 "*" | "/" => BindingPower::Multiplicative,
                 "=" => BindingPower::Assignment,
                 "." => BindingPower::Member,
+                ".." | "&&" | "||" => BindingPower::Logical,
                 _ => BindingPower::Default,
             },
             TokenType::OpenParen(ParantheseType::Square) => BindingPower::Member, // 👈 add this
