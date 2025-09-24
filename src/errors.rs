@@ -1,39 +1,31 @@
 use crate::ast::Position;
+use colored::Colorize;
 
 #[derive(Debug, Clone)]
-pub struct LexError {
+pub struct Error {
     pub message: String,
     pub position: Position,
+    pub file_name: String,
+    pub err_code: u16,
 }
 
-#[derive(Debug, Clone)]
-pub struct ParseError {
-    pub message: String,
-    pub position: Position,
-}
-
-impl LexError {
-    pub fn new(message: String, position: Position) -> Self {
-        LexError { message, position }
+impl Error {
+    pub fn new(message: String, position: Position, file_name: String, err_code: u16) -> Self {
+        Error {
+            message,
+            position,
+            file_name,
+            err_code,
+        }
     }
-
     pub fn print(&self) {
         eprintln!(
-            "Lexer error at line {}, column {}:\n\t{}",
-            self.position.row, self.position.column, self.message
-        );
-    }
-}
-
-impl ParseError {
-    pub fn new(message: String, position: Position) -> Self {
-        ParseError { message, position }
-    }
-
-    pub fn print(&self) {
-        eprintln!(
-            "Parser error at line {}, column {}:\n\t{}",
-            self.position.row, self.position.column, self.message
+            "{} {}\n\t{}:{}:{}",
+            format!("[E{:04}]:", self.err_code).red().bold(),
+            self.message.bold(),
+            self.file_name,
+            self.position.row,
+            self.position.column
         );
     }
 }

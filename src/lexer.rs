@@ -8,7 +8,7 @@
 
 use crate::{
     ast::{ParantheseType, Position, Token, TokenType},
-    errors::LexError,
+    errors::Error,
 };
 
 pub struct Lexer {
@@ -16,21 +16,23 @@ pub struct Lexer {
     input: String,
     keywords: Vec<&'static str>,
     pos: Position,
-    errors: Vec<LexError>,
+    errors: Vec<Error>,
+    file_name: String,
 }
 
 impl Lexer {
-    pub fn new(input: String) -> Self {
+    pub fn new(input: String, file_name: String) -> Self {
         Lexer {
             index: 0,
             input,
             keywords: vec!["fn", "let", "if", "else", "return", "while", "for"],
             pos: Position { row: 1, column: 1 },
             errors: vec![],
+            file_name,
         }
     }
 
-    pub fn tokenize(&mut self) -> Result<Vec<Token>, Vec<LexError>> {
+    pub fn tokenize(&mut self) -> Result<Vec<Token>, Vec<Error>> {
         let mut tokens: Vec<Token> = vec![];
 
         while let Some(char) = self.peek() {
@@ -96,9 +98,11 @@ impl Lexer {
                         tokens.push(self.tokenize_identifier());
                         continue;
                     }
-                    self.errors.push(LexError::new(
-                        format!("Invalid character: '{}'", char),
+                    self.errors.push(Error::new(
+                        format!("unexpected character: '{}'", char),
                         self.pos.clone(),
+                        self.file_name.clone(),
+                        1,
                     ));
                     self.advance();
                 }
@@ -137,9 +141,11 @@ impl Lexer {
                             return Some(Token::new(TokenType::Number(num as f64), start_pos));
                         }
                         Err(_) => {
-                            self.errors.push(LexError::new(
-                                format!("Invalid hex number: {}", number_str),
+                            self.errors.push(Error::new(
+                                format!("invalid hex number: {}", number_str),
                                 self.pos.clone(),
+                                self.file_name.clone(),
+                                2,
                             ));
                         }
                     }
@@ -159,9 +165,11 @@ impl Lexer {
                             return Some(Token::new(TokenType::Number(num as f64), start_pos));
                         }
                         Err(_) => {
-                            self.errors.push(LexError::new(
-                                format!("Invalid binary number: {}", number_str),
+                            self.errors.push(Error::new(
+                                format!("invalid binary number: {}", number_str),
                                 self.pos.clone(),
+                                self.file_name.clone(),
+                                3,
                             ));
                         }
                     }
@@ -180,9 +188,11 @@ impl Lexer {
         match number_str.parse::<f64>() {
             Ok(num) => Some(Token::new(TokenType::Number(num), start_pos)),
             Err(_) => {
-                self.errors.push(LexError::new(
-                    format!("Invalid number: {}", number_str),
+                self.errors.push(Error::new(
+                    format!("invalid number: {}", number_str),
                     self.pos.clone(),
+                    self.file_name.clone(),
+                    4,
                 ));
                 None
             }
@@ -261,9 +271,11 @@ impl Lexer {
                             if let TokenType::Number(n) = num?.t {
                                 string_lit.push(char::from_u32(n.floor() as u32).unwrap_or_else(
                                     || {
-                                        self.errors.push(LexError::new(
-                                            format!("Invalid escape sequence: \\{}", escaped),
+                                        self.errors.push(Error::new(
+                                            format!("invalid escape sequence: \\{}", escaped),
                                             self.pos.clone(),
+                                            self.file_name.clone(),
+                                            5,
                                         ));
                                         '\u{FFFD}'
                                     },
@@ -280,9 +292,11 @@ impl Lexer {
                 self.advance();
             }
         }
-        self.errors.push(LexError::new(
-            "Unterminated string literal".to_string(),
+        self.errors.push(Error::new(
+            "unterminated string literal".to_string(),
             self.pos.clone(),
+            self.file_name.clone(),
+            7,
         ));
         None
     }

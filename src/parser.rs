@@ -5,34 +5,36 @@
 use std::vec;
 
 use crate::ast::{BindingPower, Expr, Stmt, Token, TokenType};
-use crate::errors::{LexError, ParseError};
+use crate::errors::Error;
 use crate::lexer::Lexer;
 
 pub struct Parser {
     tokens: Vec<Token>,
     position: usize,
-    errors: Vec<ParseError>,
+    errors: Vec<Error>,
+    file_name: String,
 }
 
 impl Parser {
-    pub fn new(tokens: Vec<Token>) -> Self {
+    pub fn new(tokens: Vec<Token>, file_name: String) -> Self {
         Parser {
             tokens,
             position: 0,
             errors: vec![],
+            file_name,
         }
     }
 
-    pub fn from_str(input: String) -> Result<Self, Vec<LexError>> {
-        let tokens = Lexer::new(input).tokenize();
+    pub fn from_str(input: String, file_name: String) -> Result<Self, Vec<Error>> {
+        let tokens = Lexer::new(input, file_name.clone()).tokenize();
         if tokens.is_err() {
             Err(tokens.unwrap_err())
         } else {
-            Ok(Parser::new(tokens.unwrap_or_default()))
+            Ok(Parser::new(tokens.unwrap_or_default(), file_name.clone()))
         }
     }
 
-    pub fn parse(&mut self) -> Result<Stmt, Vec<ParseError>> {
+    pub fn parse(&mut self) -> Result<Stmt, Vec<Error>> {
         let mut stmts: Vec<Box<Stmt>> = vec![];
         while self.position < self.tokens.len() - 1 {
             match self.parse_stmt() {
@@ -95,9 +97,11 @@ impl Parser {
                 })
             }
             _ => {
-                self.errors.push(ParseError::new(
-                    format!("Unexpected token {:?}", token.t),
+                self.errors.push(Error::new(
+                    format!("unexpected token '{}'", token.t.value()),
                     token.position.clone(),
+                    self.file_name.clone(),
+                    8,
                 ));
                 self.advance();
                 None
@@ -123,9 +127,11 @@ impl Parser {
                 }
             }
             _ => {
-                self.errors.push(ParseError::new(
-                    format!("No led handler for token: '{}'", token.t.value()),
+                self.errors.push(Error::new(
+                    format!("no led handler for token: '{}'", token.t.value()),
                     token.position,
+                    self.file_name.clone(),
+                    9,
                 ));
                 None
             }
@@ -165,16 +171,24 @@ impl Parser {
                 self.advance();
                 Some(token)
             } else {
-                self.errors.push(ParseError::new(
-                    format!("Expected token {:?} but found {:?}", expected, current),
+                self.errors.push(Error::new(
+                    format!(
+                        "expected token '{}' but found '{}'",
+                        expected.value(),
+                        current.t.value()
+                    ),
                     current.position,
+                    self.file_name.clone(),
+                    10,
                 ));
                 None
             }
         } else {
-            self.errors.push(ParseError::new(
-                "Unexpected end of input".to_string(),
+            self.errors.push(Error::new(
+                "unexpected end of input".to_string(),
                 self.current().unwrap_or(&Token::eof()).position,
+                self.file_name.clone(),
+                11,
             ));
             None
         }

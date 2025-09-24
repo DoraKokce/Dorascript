@@ -1,4 +1,4 @@
-use crate::{ast::BindingPower, lexer::Lexer, parser::Parser};
+use crate::{lexer::Lexer, parser::Parser};
 use std::io::{self};
 
 mod ast;
@@ -14,7 +14,7 @@ fn main() {
     io::stdin()
         .read_line(&mut buffer)
         .expect("Failed to read stdin");
-    let mut lexer = Lexer::new(buffer);
+    let mut lexer = Lexer::new(buffer, "stdin".to_string());
     let tokens = lexer.tokenize();
     if tokens.is_err() {
         for err in tokens.err().unwrap() {
@@ -22,7 +22,7 @@ fn main() {
         }
         return;
     }
-    let mut parser: Parser = Parser::new(tokens.unwrap());
+    let mut parser: Parser = Parser::new(tokens.unwrap(), "stdin".to_string());
     let ast = parser.parse();
     if ast.is_err() {
         for err in ast.err().unwrap() {
@@ -38,7 +38,7 @@ mod tests {
     use crate::lexer::Lexer;
 
     fn get_tokens(input: &str) -> Vec<String> {
-        Lexer::new(input.to_string())
+        Lexer::new(input.to_string(), "test".to_string())
             .tokenize()
             .unwrap_or_default()
             .iter()
