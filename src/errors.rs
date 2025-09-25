@@ -1,19 +1,19 @@
-use crate::ast::Position;
+use crate::ast::Span;
 use colored::Colorize;
 
 #[derive(Debug, Clone)]
 pub struct Error {
     pub message: String,
-    pub position: Position,
+    pub span: Span,
     pub file_name: String,
     pub err_code: u16,
 }
 
 impl Error {
-    pub fn new(message: String, position: Position, file_name: String, err_code: u16) -> Self {
+    pub fn new(message: String, span: Span, file_name: String, err_code: u16) -> Self {
         Error {
             message,
-            position,
+            span,
             file_name,
             err_code,
         }
@@ -24,8 +24,8 @@ impl Error {
             format!("[E{:04}]:", self.err_code).red().bold(),
             self.message.bold(),
             self.file_name,
-            self.position.row,
-            self.position.column
+            self.span.start.row,
+            self.span.start.column
         );
     }
 }

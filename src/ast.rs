@@ -3,13 +3,7 @@
     Includes token types, expressions and statements.
 */
 
-/* Token Types */
-#[derive(Debug, Clone, PartialEq)]
-pub enum ParantheseType {
-    Round,
-    Curly,
-    Square,
-}
+use colored::Colorize;
 
 #[derive(Debug, Clone, PartialEq, Copy)]
 pub struct Position {
@@ -19,25 +13,64 @@ pub struct Position {
 
 impl Position {
     pub fn zero() -> Self {
-        Position { row: 0, column: 0 }
+        Position { row: 1, column: 0 }
     }
+}
+
+#[derive(Debug, Clone, PartialEq, Copy)]
+pub struct Span {
+    pub start: Position,
+    pub end: Position,
+}
+
+impl Span {
+    pub fn new(start: Position, end: Position) -> Self {
+        Span { start, end }
+    }
+
+    pub fn zero() -> Self {
+        Span {
+            start: Position::zero(),
+            end: Position::zero(),
+        }
+    }
+
+    pub fn format(&self, prefix: &str, last: bool) -> String {
+        let mut result = String::new();
+        let connector = if last { "└── " } else { "├── " };
+
+        result += &format!(
+            "{}{}From {}:{} to {}:{}\n",
+            prefix, connector, self.start.row, self.start.column, self.end.row, self.end.column
+        )
+        .dimmed();
+        result
+    }
+}
+
+/* Token Types */
+#[derive(Debug, Clone, PartialEq)]
+pub enum ParantheseType {
+    Round,
+    Curly,
+    Square,
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Token {
     pub t: TokenType,
-    pub position: Position,
+    pub span: Span,
 }
 
 impl Token {
-    pub fn new(t: TokenType, position: Position) -> Self {
-        Token { t, position }
+    pub fn new(t: TokenType, span: Span) -> Self {
+        Token { t, span }
     }
 
     pub fn eof() -> Self {
         Token {
             t: TokenType::EOF,
-            position: Position::zero(),
+            span: Span::zero(),
         }
     }
 }
@@ -110,38 +143,45 @@ pub enum BindingPower {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Expr {
-    Number(f64),
-    Identifier(String),
-    StringLiteral(String),
-    ArrayLiteral(Vec<Box<Expr>>),
+    Number(f64, Span),
+    Identifier(String, Span),
+    StringLiteral(String, Span),
+    ArrayLiteral(Vec<Box<Expr>>, Span),
     BinaryOp {
         left: Box<Expr>,
         op: Token,
         right: Box<Expr>,
+        span: Span,
     },
     AssignmentExpr {
         assigne: Box<Expr>,
         value: Box<Expr>,
+        span: Span,
     },
     PrefixExpr {
         op: Token,
         right: Box<Expr>,
+        span: Span,
     },
     MemberExpr {
         member: Box<Expr>,
         property: Box<Expr>,
+        span: Span,
     },
     ComputedExpr {
         member: Box<Expr>,
         property: Box<Expr>,
+        span: Span,
     },
     RangeExpr {
         lower: Box<Expr>,
         upper: Box<Expr>,
+        span: Span,
     },
     CallExpr {
         method: Box<Expr>,
         args: Vec<Box<Expr>>,
+        span: Span,
     },
 }
 
@@ -152,54 +192,88 @@ impl Expr {
         let padding = if last { "    " } else { "│   " };
 
         match self {
-            Expr::Number(n) => result += &format!("{}{}Number({})\n", prefix, connector, n),
-            Expr::Identifier(name) => {
-                result += &format!("{}{}Identifier({})\n", prefix, connector, name)
+            Expr::Number(n, span) => {
+                result += &format!("{}{}Number: {}\n", prefix, connector, n);
+                result += &span.format(&(prefix.to_string() + padding), true);
             }
-            Expr::StringLiteral(s) => result += &format!("{}{}String({})\n", prefix, connector, s),
-            Expr::ArrayLiteral(exprs) => {
+            Expr::Identifier(name, span) => {
+                result += &format!("{}{}Identifier: {}\n", prefix, connector, name);
+                result += &span.format(&(prefix.to_string() + padding), true);
+            }
+            Expr::StringLiteral(s, span) => {
+                result += &format!("{}{}String: {}\n", prefix, connector, s);
+                result += &span.format(&(prefix.to_string() + padding), true);
+            }
+            Expr::ArrayLiteral(exprs, span) => {
                 result += &format!("{}{}ArrayLiteral\n", prefix, connector);
+                result += &span.format(&(prefix.to_string() + padding), false);
                 for (i, expr) in exprs.iter().enumerate() {
                     let is_last = i == exprs.len() - 1;
                     result += &expr.format(&(prefix.to_string() + padding), is_last);
                 }
             }
-            Expr::PrefixExpr { op, right } => {
-                result += &format!("{}{}PrefixExpr({})\n", prefix, connector, op.t.value());
-                result += &right.format(&(prefix.to_string() + padding), true);
-            }
-            Expr::BinaryOp { left, op, right } => {
+            Expr::BinaryOp {
+                left,
+                op,
+                right,
+                span,
+            } => {
                 result += &format!("{}{}BinaryOp({})\n", prefix, connector, op.t.value());
+                result += &span.format(&(prefix.to_string() + padding), false);
                 result += &left.format(&(prefix.to_string() + padding), false);
                 result += &right.format(&(prefix.to_string() + padding), true);
             }
-            Expr::AssignmentExpr { assigne, value } => {
+            Expr::AssignmentExpr {
+                assigne,
+                value,
+                span,
+            } => {
                 result += &format!("{}{}AssignmentExpr\n", prefix, connector);
+                result += &span.format(&(prefix.to_string() + padding), false);
                 result += &assigne.format(&(prefix.to_string() + padding), false);
                 result += &value.format(&(prefix.to_string() + padding), true);
             }
-            Expr::MemberExpr { member, property } => {
+            Expr::PrefixExpr { op, right, span } => {
+                result += &format!("{}{}PrefixExpr({})\n", prefix, connector, op.t.value());
+                result += &span.format(&(prefix.to_string() + padding), false);
+                result += &right.format(&(prefix.to_string() + padding), true);
+            }
+            Expr::MemberExpr {
+                member,
+                property,
+                span,
+            } => {
                 result += &format!("{}{}MemberExpr\n", prefix, connector);
+                result += &span.format(&(prefix.to_string() + padding), false);
                 result += &member.format(&(prefix.to_string() + padding), false);
                 result += &property.format(&(prefix.to_string() + padding), true);
             }
-            Expr::ComputedExpr { member, property } => {
+            Expr::ComputedExpr {
+                member,
+                property,
+                span,
+            } => {
                 result += &format!("{}{}ComputedExpr\n", prefix, connector);
+                result += &span.format(&(prefix.to_string() + padding), false);
                 result += &member.format(&(prefix.to_string() + padding), false);
                 result += &property.format(&(prefix.to_string() + padding), true);
             }
-            Expr::RangeExpr { lower, upper } => {
+            Expr::RangeExpr { lower, upper, span } => {
                 result += &format!("{}{}RangeExpr\n", prefix, connector);
-                result += &upper.format(&(prefix.to_string() + padding), false);
-                result += &lower.format(&(prefix.to_string() + padding), true);
+                result += &span.format(&(prefix.to_string() + padding), false);
+                result += &lower.format(&(prefix.to_string() + padding), false);
+                result += &upper.format(&(prefix.to_string() + padding), true);
             }
-            Expr::CallExpr { method, args } => {
+            Expr::CallExpr { method, args, span } => {
                 result += &format!("{}{}CallExpr\n", prefix, connector);
+                result += &span.format(&(prefix.to_string() + padding), false);
                 result += &method.format(&(prefix.to_string() + padding), false);
-                result += &format!("{}└── Args\n", prefix.to_string() + padding);
-                for (i, arg) in args.iter().enumerate() {
-                    let is_last = i == args.len() - 1;
-                    result += &arg.format(&(prefix.to_string() + padding + padding), is_last);
+                if !args.is_empty() {
+                    result += &format!("{}└── Args\n", prefix.to_string() + padding);
+                    for (i, arg) in args.iter().enumerate() {
+                        let is_last = i == args.len() - 1;
+                        result += &arg.format(&(prefix.to_string() + padding + padding), is_last);
+                    }
                 }
             }
         }
@@ -210,8 +284,8 @@ impl Expr {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Stmt {
-    BlockStmt(Vec<Box<Stmt>>),
-    ExprStmt(Expr),
+    BlockStmt(Vec<Box<Stmt>>, Span),
+    ExprStmt(Expr, Span),
 }
 
 impl Stmt {
@@ -221,12 +295,14 @@ impl Stmt {
         let padding = if last { "    " } else { "│   " };
 
         match self {
-            Stmt::ExprStmt(expr) => {
+            Stmt::ExprStmt(expr, span) => {
                 result += &format!("{}{}ExprStmt\n", prefix, connector);
+                result += &span.format(&(prefix.to_string() + padding), false);
                 result += &expr.format(&(prefix.to_string() + padding), true);
             }
-            Stmt::BlockStmt(stmts) => {
+            Stmt::BlockStmt(stmts, span) => {
                 result += &format!("{}{}BlockStmt\n", prefix, connector);
+                result += &span.format(&(prefix.to_string() + padding), false);
                 for (i, stmt) in stmts.iter().enumerate() {
                     let is_last = i == stmts.len() - 1;
                     result += &stmt.format(&(prefix.to_string() + padding), is_last);
